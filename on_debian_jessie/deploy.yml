@@ -1,0 +1,149 @@
+---
+  - name: Install and configure tomcat
+    hosts: localhost
+    connection: local
+    gather_facts: false
+    vars:
+        env_type: "{{ env }}"
+    tasks:
+      - name: updating repos
+        yum:
+          name: "*"
+          state: latest
+
+      - name: check if java is installed
+        command: java -version
+        register: java_result
+        ignore_errors: true
+          
+      - name: Installing required java
+        yum:
+          name: java-1.8.0-openjdk
+          state: present
+        when: java_result is failed
+
+      - name: check if tomcat is installed
+        stat: path=/tmp/apache-tomcat-9.0.56
+        register: tomcat
+
+      - name: check if tomcat instance exist
+        stat: path=/usr/share/tomcat9
+        register: tomcat9
+        
+      - name: download required tomcat
+        get_url:
+          url: https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.56/bin/apache-tomcat-9.0.56.tar.gz
+          dest: /tmp
+        when: tomcat.stat.isdir is not defined
+
+      - name: extracting downloaded tomcat
+        command: chdir=/tmp tar xvf /tmp/apache-tomcat-9.0.56.tar.gz creates=/tmp/apache-tomcat-9.0.56
+        when: tomcat.stat.isdir is not defined
+        
+      - name: deployment of tomcat
+        command: mv /tmp/apache-tomcat-9.0.56 /usr/share/tomcat9
+        when: tomcat9.stat.isdir is not defined
+          
+      - name: Installing firewall
+        yum:
+          name: firewalld
+          state: present
+        
+      - name: open tomcat ports in firewall
+        command: firewall-cmd --permanent --zone=public --add-port=8080/tcp
+        when: tomcat9.stat.isdir is not defined 
+        
+      - name: reload firewall
+        command: firewall-cmd --reload
+        when: tomcat9.stat.isdir is not defined
+        
+      - name: install tomcat as a service > download tomcat9.service
+        get_url: 
+          url: https://raw.githubusercontent.com/arthking17/DevOps_Technical_Test/main/tomcat9.service
+          dest: /tmp/tomcat9.service
+
+      - name: install tomcat as a service > add tomcat9.service
+        command: cp /tmp/tomcat9.service /etc/systemd/system/tomcat9.service
+
+      - name: install tomcat as a service > edit rights
+        command: chown 700 /etc/systemd/system/tomcat9.service
+
+      - name: install tomcat as a service > reload daemon
+        command: systemctl daemon-reload
+        ignore_errors: true
+
+      - name: install tomcat as a service > enable tomcat9
+        command: systemctl enable tomcat9.service
+
+      - name: install tomcat as a service > create tomcat log dir
+        command: mkdir -p /var/log/tomcat9
+
+      - name: install tomcat as a service > create tomcat log file
+        command: touch /var/log/tomcat9/catalina.out
+       
+      - name: check if tomcat is running
+        stat: path=/usr/share/tomcat9/bin/catalina.sh
+        register: p
+       
+      - name: stop tomcat instance
+        command: service tomcat9 stop
+        when: p.stat.isreg is defined and p.stat.isreg == true
+
+      - name: launching instance tomcat
+        command: nohup service tomcat9 start
+        environment:
+          CATALINA_HOME: /usr/share/tomcat9
+          CATALINA_PID: /usr/share/tomcat9/logs/tomcat.pid
+          CATALINA_OPTS: -Xmx256m
+          CATALINA_OUT: /var/log/tomcat9/catalina.out
+        when: env_type == "DEV"
+
+      - name: launching instance tomcat
+        command: nohup service tomcat9 start
+        environment:
+          CATALINA_HOME: /usr/share/tomcat9
+          CATALINA_PID: /usr/share/tomcat9/logs/tomcat.pid
+          CATALINA_OPTS: -Xmx512m
+          CATALINA_OUT: /var/log/tomcat9/catalina.out
+        when: env_type == "PROD"
+        
+      - name: download war file
+        get_url: 
+          url: https://github.com/arthking17/DevOps_Technical_Test/raw/main/sample.war
+          dest: /tmp/sample-1.0.war
+          
+      - name: deploy war file on tomcat
+        command: mv /tmp/sample-1.0.war /usr/share/tomcat9/webapps/sample.war
+          
+      - name: waiting launching of instance
+        wait_for: port=8080
+       
+      - name: Check tomcat service status
+        command: service tomcat9 status
+        register: tomcat_status
+        ignore_errors: true
+        
+      - name: restart tomcat service
+        command: service tomcat9 restart
+        when: tomcat_status is failed
+        ignore_errors: true
+        
+      - debug: 
+          msg: tomcat is running
+        when: tomcat_status is success
+       
+      - name: Check application home page
+        command: curl http://localhost:8080/sample/
+        register: app_status
+        
+      - debug: 
+          msg: app has been successfully deployed and running
+        when: app_status is success
+       
+      - name: Check tomcat logs
+        command: cat /var/log/tomcat9/catalina.out
+        register: log_result
+        
+      - debug: 
+          msg: app log has been registered
+        when: log_result is success
