@@ -1,11 +1,11 @@
 #installing correct environment for debian
 
-- name: updating repos for debian
+- name: updating repos (debian)
   apt:
     name: "*"
     state: latest
 
-- name: Installing firewall for debian
+- name: Installing firewall (debian)
   apt:
     name: firewalld
     state: present

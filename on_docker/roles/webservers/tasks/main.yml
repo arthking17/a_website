@@ -1,9 +1,9 @@
 ---
-- name: installing correct environment for redhat
+- name: installing correct environment (redhat)
   import_tasks: redhat.yml
   when: ansible_facts['os_family']|lower == 'redhat'
 
-- name: installing correct environment for debian
+- name: installing correct environment (debian)
   import_tasks: debian.yml
   when: ansible_facts['os_family']|lower == 'debian'
 
@@ -38,8 +38,9 @@
   
 - name: deployment of tomcat
   copy:
-    src: /tmp/apache-tomcat-9.0.56
-    dest: /usr/share/tomcat9
+    src: /tmp/apache-tomcat-9.0.56/
+    dest: /usr/share/tomcat9/
+    mode: 0755
   when: tomcat9.stat.isdir is not defined
     
 - name: Start service firewalld, if not started
@@ -62,15 +63,6 @@
 
 - name: install tomcat as a service > enable tomcat9
   command: systemctl enable tomcat9.service
-
-- name: install tomcat as a service > create tomcat log dir
-  command: mkdir -p /var/log/tomcat9
-
-- name: install tomcat as a service > create tomcat log file
-  file:
-    path: /var/log/tomcat9/catalina.out
-    state: touch
-    mode: u=rw,g=r,o=r
   
 - name: check if tomcat is running
   stat: path=/usr/share/tomcat9/bin/catalina.sh
