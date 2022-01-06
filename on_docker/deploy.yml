@@ -1,0 +1,9 @@
+---
+  - name: Install and configure tomcat
+    hosts: localhost
+    connection: local
+    gather_facts: yes
+    vars:
+        env_type: "{{ env }}"
+    roles:
+      - webservers

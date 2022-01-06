@@ -1,0 +1,93 @@
+---
+- name: installing correct environment for redhat
+  import_tasks: redhat.yml
+  when: ansible_facts['os_family']|lower == 'redhat'
+
+- name: installing correct environment for debian
+  import_tasks: debian.yml
+  when: ansible_facts['os_family']|lower == 'debian'
+
+- name: check if java is installed
+  command: java -version
+  register: java_result
+  ignore_errors: true
+    
+- name: Installing required java
+  yum:
+    name: java-1.8.0-openjdk
+    state: present
+  when: java_result is failed
+
+- name: check if tomcat is installed
+  stat: path=/tmp/apache-tomcat-9.0.56
+  register: tomcat
+
+- name: check if tomcat instance exist
+  stat: path=/usr/share/tomcat9
+  register: tomcat9
+  
+- name: download required tomcat
+  get_url:
+    url: https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.56/bin/apache-tomcat-9.0.56.tar.gz
+    dest: /tmp
+  when: tomcat.stat.isdir is not defined
+
+- name: extracting downloaded tomcat
+  command: chdir=/tmp tar xvf /tmp/apache-tomcat-9.0.56.tar.gz creates=/tmp/apache-tomcat-9.0.56
+  when: tomcat.stat.isdir is not defined
+  
+- name: deployment of tomcat
+  copy:
+    src: /tmp/apache-tomcat-9.0.56
+    dest: /usr/share/tomcat9
+  when: tomcat9.stat.isdir is not defined
+    
+- name: Start service firewalld, if not started
+  command: systemctl start firewalld
+      
+- name: permit traffic in default zone on port 8080/tcp
+  ansible.posix.firewalld:
+    port: 8080/tcp
+    permanent: yes
+    state: enabled
+
+- name: install tomcat as a service > add tomcat9.service
+  template:
+    src: tomcat9.service.j2
+    dest: /etc/systemd/system/tomcat9.service
+    mode: 0755
+
+- name: install tomcat as a service > reload daemon
+  command: systemctl daemon-reload
+
+- name: install tomcat as a service > enable tomcat9
+  command: systemctl enable tomcat9.service
+
+- name: install tomcat as a service > create tomcat log dir
+  command: mkdir -p /var/log/tomcat9
+
+- name: install tomcat as a service > create tomcat log file
+  file:
+    path: /var/log/tomcat9/catalina.out
+    state: touch
+    mode: u=rw,g=r,o=r
+  
+- name: check if tomcat is running
+  stat: path=/usr/share/tomcat9/bin/catalina.sh
+  register: p
+  
+- name: stop tomcat instance
+  command: systemctl stop tomcat9
+  when: p.stat.isreg is defined and p.stat.isreg == true
+
+- name: launching instance tomcat
+  command: systemctl start tomcat9
+    
+- name: deploy war file on tomcat
+  copy:
+    src: files/sample.war
+    dest: /usr/share/tomcat9/webapps/sample.war
+    mode: 0755
+    
+- name: waiting launching of instance
+  wait_for: port=8080

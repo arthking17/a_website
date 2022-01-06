@@ -1,0 +1,11 @@
+#installing correct environment for redhat
+
+- name: updating repos for redhat
+  yum:
+    name: "*"
+    state: latest
+
+- name: Installing firewall for redhat
+  yum:
+    name: firewalld
+    state: present
