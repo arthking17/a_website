@@ -57,6 +57,15 @@
     src: tomcat9.service.j2
     dest: /etc/systemd/system/tomcat9.service
     mode: 0755
+    
+- name: install tomcat as a service > create tomcat log dir
+  command: mkdir -p /var/log/tomcat9
+
+- name: install tomcat as a service > create tomcat log file
+  file:
+    path: /var/log/tomcat9/catalina.out
+    state: touch
+    mode: u=rw,g=r,o=r
 
 - name: install tomcat as a service > reload daemon
   command: systemctl daemon-reload
