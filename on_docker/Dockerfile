@@ -1,2 +1,2 @@
-FROM debian:jessie
-ENV PATH /usr/local/bin:/bin:/usr/bin:/sbin:/usr/sbin
+FROM centos:7
+CMD ["/usr/sbin/init"]
