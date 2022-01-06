@@ -5,7 +5,7 @@
 # mention distribution name in 2nd argument
 
 export ENVIRONMENT=$1
-export distribution=$1
+export distribution=$2
 
 usage() {
     echo "Usage:  $0 <ENVIRONMENT>"
